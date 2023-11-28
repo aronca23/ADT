@@ -3,6 +3,7 @@ package gestor;
 import BD.Conexion;
 import clases.Cancion;
 import clases.Grupo;
+import clases.Voto;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -113,16 +114,18 @@ public class Gestor {
     }
     public Set<Grupo> cancionesMasVotos(){ // modificar
         Set<Grupo>grupos=new HashSet<>();
-        String sql="SELECT g.nombre,c.titulo,c.votos FROM canciones c INNER JOIN grupos g ORDER BY votos DESC LIMIT 5";
+        String sql="SELECT g.nombre,c.titulo,COUNT(v.cancion) AS totalVotos FROM canciones c INNER JOIN grupos g ON g.id=c.grupo INNER JOIN votos v ON c.id=v.cancion group by g.nombre,c.titulo,v.cancion  ORDER BY v.cancion LIMIT 5";
         try (Connection connection=Conexion.getInstance().getConnection();
              PreparedStatement st= connection.prepareStatement(sql)){
             ResultSet rs=st.executeQuery();
             while (rs.next()){
                 Cancion cancion=new Cancion();
+                Voto voto=new Voto();
                 Grupo grupo=new Grupo();
                 grupo.setNombre(rs.getString("nombre"));
+                voto.setId_cancion(rs.getInt("totalVotos"));
                 cancion.setTitulo(rs.getString("titulo"));
-                cancion.setNumVotos(rs.getInt("votos"));
+                cancion.getVotos().add(voto);
                 grupo.getCanciones().add(cancion);
                 grupos.add(grupo);
             }
@@ -131,16 +134,15 @@ public class Gestor {
         }
         return grupos;
     }
-    public Set<Grupo> gruposSinCanciones(){
-        Set<Grupo>grupos=new HashSet<>();
-        String sql="SELECT g.nombre FROM grupos g INNER JOIN canciones c ON c.grupo=g.id WHERE g.id NOT IN c.grupo";
+    public Set<String> gruposSinCanciones(){
+        Set<String>grupos=new HashSet<>();
+        String sql="SELECT g.nombre FROM grupos g where g.id  not in (select grupo from canciones c)";
         try (Connection connection=Conexion.getInstance().getConnection();
         PreparedStatement st= connection.prepareStatement(sql)){
             ResultSet rs=st.executeQuery();
             while (rs.next()){
-                Grupo grupo=new Grupo();
-                grupo.setNombre(rs.getString("nombre"));
-                grupos.add(grupo);
+                String nombre=rs.getString("nombre");
+                grupos.add(nombre);
             }
         } catch (SQLException e) {
             System.err.println(e.getErrorCode()+" - "+e.getMessage());
@@ -148,7 +150,85 @@ public class Gestor {
         return grupos;
     }
     public Set<Grupo> votosRecientes(){
-
+        Set<Grupo>grupos=new HashSet<>();
+        String sql="SELECT g.nombre,c.titulo,v.fecha FROM canciones c INNER JOIN grupos g ON g.id=c.grupo INNER JOIN votos v ON c.id=v.cancion ORDER BY v.fecha LIMIT 5";
+        try (Connection connection=Conexion.getInstance().getConnection();
+             PreparedStatement st= connection.prepareStatement(sql)){
+            ResultSet rs=st.executeQuery();
+            while (rs.next()){
+                Cancion cancion=new Cancion();
+                Voto voto=new Voto();
+                Grupo grupo=new Grupo();
+                grupo.setNombre(rs.getString("nombre"));
+                voto.setFecha(rs.getDate("fecha").toLocalDate());
+                cancion.setTitulo(rs.getString("titulo"));
+                cancion.getVotos().add(voto);
+                grupo.getCanciones().add(cancion);
+                grupos.add(grupo);
+            }
+        } catch (SQLException e) {
+            System.err.println(e.getErrorCode()+" - "+e.getMessage());
+        }
+        return grupos;
     }
-    public
+    public void borrarCancionesGrupo(int idGrupo){
+        String sql="DELETE * FROM canciones c INNER JOIN votos v ON c.id=v.cancion WHERE c.grupo=?";
+        try (Connection connection=Conexion.getInstance().getConnection();
+        PreparedStatement st= connection.prepareStatement(sql)){
+            st.setInt(1,idGrupo);
+        } catch (SQLException e) {
+            System.err.println(e.getErrorCode()+" - "e.getMessage());
+        }
+    }
+    public Set<Grupo> modificarGrupo(String preguntar,String nombre,String estilo,int añograbacion,String localidad,String compañia){
+        Set<Grupo>grupos=new HashSet<>();
+        String sql="select estilo,añograbacion,localidad,compañia from grupos g where nombre=?";
+        try (Connection connection=Conexion.getInstance().getConnection();
+        PreparedStatement st= connection.prepareStatement(sql)){
+            st.setString(1,nombre);
+            ResultSet rs=st.executeQuery();
+            while (rs.next()){
+                Grupo grupo=new Grupo();
+                grupo.setEstilo(rs.getString("estilo"));
+                grupo.setAnnoGrabacion(rs.getInt("añograbacion"));
+                grupo.setLocalidad(rs.getString("localidad"));
+                grupo.setCompannia(rs.getString("compañia"));
+                grupos.add(grupo);
+                switch (preguntar){
+                    case "estilo" -> {
+                        sql="SET grupo UPDATE estilo=? WHERE estilo=?";
+                        st.setString(2,grupo.getEstilo());
+                        st.setString(1,estilo);
+                        st.executeUpdate();
+                    }
+                    case "añograbacion" -> {
+                        sql="SET grupo UPDATE añograbacion=? WHERE añograbacion=?";
+                        st.setInt(2,grupo.getAnnoGrabacion());
+                        st.setInt(1,añograbacion);
+                        st.executeUpdate();
+                    }
+                    case "localidad" -> {
+                        sql="SET grupo UPDATE localidad=?";
+                        st.setString(1,localidad);
+                        st.executeUpdate();
+                    }
+                    case "compañia" -> {
+                        sql="SET grupo UPDATE compañia=?";
+                        st.setString(1,compañia);
+                        st.executeUpdate();
+                    }
+                    case "nombre" -> {
+                        sql="SET grupo UPDATE nombre=?";
+                        st.setString(1,nombre);
+                        st.executeUpdate();
+                    }
+                }
+
+            }
+
+        } catch (SQLException e) {
+            System.err.println(e.getErrorCode()+" - "+e.getMessage());
+        }
+        return grupos;
+    }
 }

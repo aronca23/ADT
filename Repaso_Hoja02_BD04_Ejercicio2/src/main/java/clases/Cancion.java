@@ -1,22 +1,24 @@
 package clases;
 
 import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Cancion {
     private int id,idGrupo;
     private LocalTime duracion;
     private String titulo;
-    private int numVotos;
+    Set<Voto>votos;
 
-    public Cancion(int id, int idGrupo, LocalTime duracion, String titulo,int numVotos) {
+    public Cancion(int id, int idGrupo, LocalTime duracion, String titulo) {
         this.id = id;
         this.idGrupo = idGrupo;
         this.duracion = duracion;
         this.titulo = titulo;
-        this.numVotos=numVotos;
     }
 
     public Cancion() {
+        votos=new HashSet<>();
     }
 
     public int getId() {
@@ -51,12 +53,12 @@ public class Cancion {
         this.titulo = titulo;
     }
 
-    public int getNumVotos() {
-        return numVotos;
+    public Set<Voto> getVotos() {
+        return votos;
     }
 
-    public void setNumVotos(int numVotos) {
-        this.numVotos = numVotos;
+    public void setVotos(Set<Voto> votos) {
+        this.votos = votos;
     }
 
     @Override
