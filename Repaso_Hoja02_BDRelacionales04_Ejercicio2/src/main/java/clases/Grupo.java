@@ -3,6 +3,7 @@ package clases;
 import java.net.ServerSocket;
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 public class Grupo {
@@ -99,5 +100,40 @@ public class Grupo {
 
     public void setCanciones(Set<Cancion> canciones) {
         this.canciones = canciones;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("Grupo{");
+        sb.append("id=").append(id);
+        sb.append(", nombre='").append(nombre).append('\'');
+        sb.append(", localidad='").append(localidad).append('\'');
+        sb.append(", estilo='").append(estilo).append('\'');
+        sb.append(", esGrupo=").append(esGrupo);
+        sb.append(", añoGrabacion=").append(añoGrabacion);
+        sb.append(", fechaEstreno=").append(fechaEstreno);
+        sb.append(", compañia='").append(compañia).append('\'');
+        sb.append(", canciones=").append(canciones);
+        sb.append('}');
+        return sb.toString();
+    }
+    public String mostrarCancion(){
+        StringBuilder cad= new StringBuilder();
+        Iterator<Cancion>it=canciones.iterator();
+        while (it.hasNext()){
+            Cancion cancion=it.next();
+            cad.append(cancion.getTitulo());
+        }
+        return cad.toString();
+    }
+    public String mostrarCancion2(){
+        StringBuilder cad= new StringBuilder();
+        Iterator<Cancion>it=canciones.iterator();
+        while (it.hasNext()){
+            Cancion cancion=it.next();
+            cad.append(cancion.getTitulo());
+            cad.append(cancion.mostrarVoto());
+        }
+        return cad.toString();
     }
 }

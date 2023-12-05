@@ -2,18 +2,18 @@ package gestor;
 
 import clases.Cancion;
 import clases.Grupo;
+import clases.Voto;
 import conexion.Conexion;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class Gestor {
     public Set<Grupo> listadoGrupos(){
@@ -37,16 +37,19 @@ public class Gestor {
     }
     public Set<Grupo> listadoCanciones(){
         Set<Grupo> grupos=new HashSet<>();
-        String sql1="SELECT  nombre FROM grupos";
-        String sql2="SELECT titulo FROM canciones c INNER JOIN grupos g ON c.grupo=g.id";
+        String sql1="SELECT  id,nombre FROM grupos";
+        String sql2="SELECT titulo FROM canciones WHERE grupo=?";
         try (Connection connection=Conexion.getInstance().getConec();
         PreparedStatement st1= connection.prepareStatement(sql1);
         PreparedStatement st2= connection.prepareStatement(sql2)){
             ResultSet rs1=st1.executeQuery();
-            ResultSet rs2=st2.executeQuery();
+
             while (rs1.next()){
                 Grupo grupo=new Grupo();
+                grupo.setId(rs1.getInt("id"));
                 grupo.setNombre(rs1.getString("nombre"));
+                st2.setInt(1,rs1.getInt("id"));
+                ResultSet rs2=st2.executeQuery();
                 while (rs2.next()){
                     Cancion cancion=new Cancion();
                     cancion.setTitulo(rs2.getString("titulo"));
@@ -105,7 +108,7 @@ public class Gestor {
     }
     public Set<Grupo> cancionesMasVotadas(){
         Set<Grupo> grupos=new HashSet<>();
-        String sql="SELECT g.nombre,c.titulo FROM grupos INNER JOIN canciones ON g.id=c.grupo INNER JOIN votos v ON c.id=v.cancion ORDER BY v.cancion DESC LIMIT 5";
+        String sql="SELECT g.nombre,c.titulo FROM grupos g INNER JOIN canciones c ON g.id=c.grupo INNER JOIN votos v ON c.id=v.cancion ORDER BY v.cancion DESC LIMIT 5";
         try (Connection connection=Conexion.getInstance().getConec();
         PreparedStatement st= connection.prepareStatement(sql)){
             ResultSet rs= st.executeQuery();
@@ -124,7 +127,7 @@ public class Gestor {
     }
     public Set<Grupo> gruposSinCanciones(){
         Set<Grupo> grupos=new HashSet<>();
-        String sql="SELECT nombre FROM grupos WHERE id=(SELECT g.id FROM grupos g INNER JOIN canciones c ON g.id=c.grupo)";
+        String sql="SELECT nombre FROM grupos WHERE id not in(SELECT g.id FROM grupos g INNER JOIN canciones c ON g.id=c.grupo)";
         try (Connection connection=Conexion.getInstance().getConec();
         PreparedStatement st= connection.prepareStatement(sql)){
             ResultSet rs= st.executeQuery();
@@ -140,31 +143,47 @@ public class Gestor {
     }
     public Set<Grupo> votosMasRecientes(){
         Set<Grupo> grupos=new HashSet<>();
-        String sql="SELECT g.nombre, c.titulo,v.voto FROM grupos g INNER JOIN canciones c ON g.id=c.grupo INNER JOIN votos v ON c.id=v.cancion ORDER BY v.fecha LIMIT 5";
+        String sql="SELECT g.nombre, c.titulo,v.cancion FROM grupos g INNER JOIN canciones c ON g.id=c.grupo INNER JOIN votos v ON c.id=v.cancion ORDER BY v.fecha LIMIT 5";
         try (Connection connection=Conexion.getInstance().getConec();
         PreparedStatement st= connection.prepareStatement(sql)){
-
+            ResultSet rs=st.executeQuery();
+            while (rs.next()){
+                Grupo grupo=new Grupo();
+                Cancion cancion=new Cancion();
+                Voto voto=new Voto();
+                grupo.setNombre(rs.getString("nombre"));
+                cancion.setTitulo(rs.getString("titulo"));
+                voto.setCancion(rs.getInt("cancion"));
+                cancion.getVotos().add(voto);
+                grupo.getCanciones().add(cancion);
+            }
         } catch (SQLException e) {
             System.err.println(e.getErrorCode()+" - "+e.getMessage());
         }
         return grupos;
     }
     public void eliminarCanciones(String nombre){
-        String sql="DELETE * FROM canciones c INNER JOIN grupos g ON g.id=c.grupo WHERE g.nombre=?";
+        String sql1="delete from votos where cancion in(select cancion c from votos v inner join canciones c on c.id=v.cancion inner join grupos g on g.id=c.grupo where g.nombre=?)";
+        String sql2="DELETE FROM canciones where grupo in (select c.grupo from canciones c INNER JOIN grupos g ON g.id=c.grupo WHERE g.nombre=?)";
         try (Connection connection=Conexion.getInstance().getConec();
-        PreparedStatement st= connection.prepareStatement(sql)){
-            st.setString(1,nombre);
+        PreparedStatement st1= connection.prepareStatement(sql1);
+        PreparedStatement st2= connection.prepareStatement(sql2)){
+            st1.setString(1,nombre);
+            st2.setString(1,nombre);
         } catch (SQLException e) {
             System.err.println(e.getErrorCode()+" - "+e.getMessage());
         }
     }
-    public Set<Grupo> modificarGrupo(String nombre){
+    public Set<Grupo> modificarGrupo(String nombre,String preguntar,String estilo,int añoGrabacion,int año,int mes,int dia,String localidad,String compañia){
         Set<Grupo> grupos=new HashSet<>();
         String sql="SELECT estilo,añograbacion,fechaestreno,localidad,compañia FROM grupos WHERE nombre=?";
+        String sql2="";
         try (Connection connection=Conexion.getInstance().getConec();
-        PreparedStatement st= connection.prepareStatement(sql)){
+        PreparedStatement st= connection.prepareStatement(sql);
+        PreparedStatement st2= connection.prepareStatement(sql2)){
             st.setString(1,nombre);
             ResultSet rs= st.executeQuery();
+
             while (rs.next()){
                 Grupo grupo=new Grupo();
                 grupo.setEstilo(rs.getString("estilo"));
@@ -172,7 +191,24 @@ public class Gestor {
                 grupo.setFechaEstreno(rs.getDate("fechaestreno").toLocalDate());
                 grupo.setLocalidad(rs.getString("localidad"));
                 grupo.setCompañia(rs.getString("compañia"));
-                // Falta una parte
+                if (preguntar.equalsIgnoreCase("estilo")){
+                    sql="UPDATE grupos SET nombre=?";
+                    st.setString(1,estilo);
+                } else if (preguntar.equalsIgnoreCase("añograbacion")) {
+                    sql="UPDATE grupos SET nombre=?";
+                    st.setInt(1,añoGrabacion);
+                }else if (preguntar.equalsIgnoreCase("fechaestreno")) {
+                    sql="UPDATE grupos SET nombre=?";
+                    LocalDate fecha=LocalDate.of(año,mes,dia);
+                    st.setDate(1, Date.valueOf(fecha));
+                }else if (preguntar.equalsIgnoreCase("localidad")) {
+                    sql="UPDATE grupos SET nombre=?";
+                    st.setString(1,localidad);
+                }else if (preguntar.equalsIgnoreCase("compañia")) {
+                    sql="UPDATE grupos SET nombre=?";
+                    st.setString(1,compañia);
+                }
+                st2.executeUpdate();
             }
         } catch (SQLException e) {
             System.err.println(e.getErrorCode()+" - "+e.getMessage());

@@ -2,6 +2,7 @@ package clases;
 
 import java.time.LocalTime;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 public class Cancion {
@@ -59,5 +60,14 @@ public class Cancion {
 
     public void setVotos(Set<Voto> votos) {
         this.votos = votos;
+    }
+    public String mostrarVoto(){
+        StringBuilder cad= new StringBuilder();
+        Iterator<Voto> it=votos.iterator();
+        while (it.hasNext()){
+            Voto voto=it.next();
+            cad.append(voto.getCancion());
+        }
+        return cad.toString();
     }
 }
